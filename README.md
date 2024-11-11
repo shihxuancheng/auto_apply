@@ -1,5 +1,24 @@
 # Auto Apply
 
+## Installation
+
+1. 安裝python runtime
+
+    [python 3.11.9 for windows](https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe)
+
+
+2. 安裝python dependencies
+3. 建立windows schedule job
+
+    ${date} => 
+
+    ${time} =>
+
+    ${command} =>
+
+``` commandline
+    C:\Users\xxxx> schtasks /create /tn "AutoApplyTask" /tr "${command}" /sc once /st ${time} /sd ${date}
+```
 
 ## Configuration
 `config.ini` - 必須放在與主程式相同目錄下

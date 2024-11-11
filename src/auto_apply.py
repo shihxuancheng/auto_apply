@@ -17,7 +17,7 @@ def init_log() -> logging.Logger:
     logger.setLevel(logging.INFO)
 
     # 建立文件處理器
-    file_handler = logging.FileHandler('auto_apply.log')
+    file_handler = logging.FileHandler(os.path.dirname(__file__) + "/auto_apply.log")
     file_handler.setFormatter(formatter)
 
     # 建立控制台處理器
@@ -47,7 +47,7 @@ def load_config(config_file: str) -> tuple:
         logger.info(f"load config file: {config_file}")
 
         config = configparser.ConfigParser()
-        config.read(config_file)
+        config.read(config_file, encoding="utf-8")
         # load leave application data
         default_config = {key: config.get("default", key) for key in config.options("default")}
         apply_data = {key: config.get("apply_data", key) for key in config.options("apply_data")}
@@ -144,7 +144,7 @@ def main():
     if args.config:
         config_path = args.config
     else:
-        config_path = os.path.dirname(__file__) + "/config.ini"
+        config_path = os.path.dirname(__file__) + "\config.ini"
 
     default_config, apply_data = load_config(config_path)
 
