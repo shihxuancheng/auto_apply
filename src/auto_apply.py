@@ -1,8 +1,11 @@
-import configparser, logging, argparse, os, traceback
+import configparser, logging, argparse, os, traceback, sys,pprint
+import time
+
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from datetime import datetime
 
 dry_run_mode = False
 logger = None
@@ -53,8 +56,8 @@ def load_config(config_file: str) -> tuple:
         apply_data = {key: config.get("apply_data", key) for key in config.options("apply_data")}
 
         if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f"default_config: {default_config}")
-            logger.debug(f"apply_data: {apply_data}")
+            logger.debug(f"default_config: \n{pprint.pformat(default_config)}")
+            logger.debug(f"apply_data: \n{pprint.pformat(apply_data)}")
 
         return default_config, apply_data
     except Exception as e:
@@ -76,7 +79,8 @@ def verify_webdriver() -> None:
         logger.error(traceback.print_exc())
         raise
 
-def do_apply_leave(default_config: dict, apply_data: dict) -> None:
+
+def do_apply_leave(default_config: dict, apply_data: dict, target_date :datetime=None) -> None:
     """
     根據提供的默認配置和申請數據，自動提交請假申請。
 
@@ -107,18 +111,32 @@ def do_apply_leave(default_config: dict, apply_data: dict) -> None:
             button = WebDriverWait(driver, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, submit_button_id))
             )
+            # wait until target date
+            if target_date:
+                while True:
+                    current_date = datetime.now()
+                    if current_date >= target_date:
+                        break
+                    time.sleep(1)
 
-            button.click()
-
-            WebDriverWait(driver, 10).until(
-                EC.url_matches(url + "/formResponse")
-            )
-
-            params = "\n".join([f"{key}={value}" for key, value in apply_data.items()])
-            logger.info(f"Send request successfully with params: \n {params}")
+            # button.click()
+            #
+            # WebDriverWait(driver, 10).until(
+            #     EC.url_matches(url + "/formResponse")
+            # )
+            #
+            # params = "\n".join([f"{key}={value}" for key, value in apply_data.items()])
+            # logger.info(f"Send request successfully with params: \n {params}")
     except Exception as e:
         logger.error(f"Error occurred: {e}")
         logger.error(traceback.print_exc())
+
+
+def valid_date(s):
+    try:
+        return datetime.strptime(s, "%Y-%m-%d %H:%M:%S")
+    except:
+        raise argparse.ArgumentTypeError(f"Not a valid date: '{s}'.")
 
 
 def main():
@@ -132,6 +150,7 @@ def main():
 
     parser.add_argument("--dry-run", action="store_true", help="Dry run mode")
     parser.add_argument("--config", type=str, help="Path to the configuration file")
+    parser.add_argument("--target_date", type=valid_date, help="Date in the format: 'YYYY-MM-DD HH:MM:SS'")
 
     args = parser.parse_args()
 
@@ -144,16 +163,16 @@ def main():
     if args.config:
         config_path = args.config
     else:
-        config_path = os.path.dirname(__file__) + "\config.ini"
+        config_path = os.path.dirname(__file__) + os.sep + "config.ini"
 
     default_config, apply_data = load_config(config_path)
 
     if dry_run_mode:
         verify_webdriver()
+        sys.exit(0)
 
     # do the auto apply process
-    if not dry_run_mode:
-        do_apply_leave(default_config, apply_data)
+    do_apply_leave(default_config, apply_data, args.target_date)
 
 
 if __name__ == '__main__':
