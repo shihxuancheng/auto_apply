@@ -5,7 +5,7 @@ name = "pypi"
 
 [packages]
 selenium = "*"
-pyinstaller = "*"
+tqdm = "*"
 
 [dev-packages]
 

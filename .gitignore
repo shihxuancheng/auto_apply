@@ -2,3 +2,7 @@
 *.iml
 *.log
 *.spec
+auto-apply
+build
+/auto_apply.egg-info/
+--pycache__
