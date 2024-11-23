@@ -84,3 +84,8 @@ entry.1288315452= ;請填入請假密碼
 ```shell
     c:\auto-apply> auto-apply -d "2024-12-05 10:00:00" #程式會在2024年12月5日早上10點執行
 ```
+
+## reference
+- https://developer.chrome.com/docs/chromedriver/get-started?hl=zh-tw
+- [webdriver for new chrome version](https://googlechromelabs.github.io/chrome-for-testing/)
+- [webdriver for old chrome version](https://developer.chrome.com/docs/chromedriver/downloads?hl=zh-tw)

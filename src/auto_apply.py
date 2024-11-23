@@ -87,7 +87,7 @@ def _verify_webdriver() -> None:
         raise
 
 
-def _do_apply_leave(default_config: dict, apply_data: dict) -> None:
+def _do_apply_leave(default_config: dict, apply_data: dict, driver: webdriver) -> None:
     """
     根據提供的默認配置和申請數據，自動提交請假申請。
 
@@ -104,32 +104,34 @@ def _do_apply_leave(default_config: dict, apply_data: dict) -> None:
 
     url = base_url + "/viewform" + "?" + "&".join([f"{key}={value}" for key, value in apply_data.items()])
 
-    options = webdriver.ChromeOptions()
-    for option in default_config["browser_options"].split(","):
-        options.add_argument(option)
+    # options = webdriver.ChromeOptions()
+    # for option in default_config["browser_options"].split(","):
+    #     options.add_argument(option)
 
     try:
-        with webdriver.Chrome(options) as driver:
-            driver.get(url)
+        # with webdriver.Chrome(options) as driver:
+        driver.get(url)
 
-            form = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.ID, submit_form_id))
-            )
-            button = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, submit_button_id))
-            )
+        form = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.ID, submit_form_id))
+        )
+        button = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, submit_button_id))
+        )
 
-            button.click()
+        button.click()
 
-            WebDriverWait(driver, 10).until(
-                EC.url_matches(url + "/formResponse")
-            )
+        WebDriverWait(driver, 10).until(
+            EC.url_changes(url + "/formResponse")
+        )
 
-            params = "\n".join([f"{key}={value}" for key, value in apply_data.items()])
-            _logger.info(f"Send request successfully with params: \n {params}")
+        params = "\n".join([f"{key}={value}" for key, value in apply_data.items()])
+        _logger.info(f"Send request successfully with params: \n {params}")
     except Exception as e:
         _logger.error(f"Error occurred: {e}")
         _logger.error(traceback.print_exc())
+    finally:
+        driver.quit()
 
 
 def _valid_date(s):
@@ -140,6 +142,11 @@ def _valid_date(s):
 
 
 def _waiting_to_run(execute_date: datetime) -> None:
+    """
+    等待到指定的執行日期
+    :param 日期:
+    :return:
+    """
     now = datetime.now()
     delta = (execute_date - now).total_seconds()
 
@@ -150,6 +157,23 @@ def _waiting_to_run(execute_date: datetime) -> None:
     for i in tqdm(range(int(delta)), desc="Waiting time for auto-apply execution", unit="s",
                   bar_format="{desc}: {remaining}"):
         time.sleep(1)
+
+
+def _pre_load_driver(default_config: dict) -> webdriver:
+    """
+    載入具有默認配置的webdriver
+    參數:
+    default_config (dict): 默認配置字典
+    返回:
+    webdriver.Chrome: 已初始化的webdriver對象
+    """
+    _logger.info("Pre-load the webdriver.")
+
+    options = webdriver.ChromeOptions()
+    for option in default_config["browser_options"].split(","):
+        options.add_argument(option)
+    driver = webdriver.Chrome(options)
+    return driver
 
 
 def main():
@@ -180,10 +204,12 @@ def main():
         sys.exit(0)
 
     # do the auto apply process
+    driver = _pre_load_driver(default_config)
+
     if args.execute_date:
         _waiting_to_run(args.execute_date)
 
-    _do_apply_leave(default_config, apply_data)
+    _do_apply_leave(default_config, apply_data, driver)
 
 
 if __name__ == '__main__':
