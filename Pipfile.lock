@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "286e9f5fca649a36327c0937ef317592b58c98c362d173dd00aacc9f44c0949a"
+            "sha256": "709e2e95a270289497b4fc572c8e6f8f0671b3e8062c1633da7fb8128d13c76c"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -24,6 +24,12 @@
             ],
             "markers": "python_version >= '3.7'",
             "version": "==24.2.0"
+        },
+        "auto-apply": {
+            "file": "dist/auto_apply-1.0.1-py3-none-any.whl",
+            "hashes": [
+                "sha256:aa0245d35414c2123a7b9547c8874d95be1034d648137343a2b3fd6884802a72"
+            ]
         },
         "certifi": {
             "hashes": [
@@ -48,6 +54,14 @@
             ],
             "markers": "python_version >= '3.6'",
             "version": "==3.10"
+        },
+        "ntplib": {
+            "hashes": [
+                "sha256:899d8fb5f8c2555213aea95efca02934c7343df6ace9d7628a5176b176906267",
+                "sha256:8d27375329ed7ff38755f7b6d4658b28edc147cadf40338a63a0da8133469d60"
+            ],
+            "index": "pypi",
+            "version": "==0.4.0"
         },
         "outcome": {
             "hashes": [

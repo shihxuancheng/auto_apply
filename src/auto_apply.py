@@ -5,6 +5,7 @@ import os
 import sys
 import time
 import traceback
+import ntplib
 from datetime import datetime
 
 from selenium import webdriver
@@ -12,6 +13,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from tqdm import tqdm
+from time import ctime
 
 _logger = None
 
@@ -147,7 +149,16 @@ def _waiting_to_run(execute_date: datetime) -> None:
     :param 日期:
     :return:
     """
-    now = datetime.now()
+    def get_ntp_time():
+        """
+        Get the NTP time
+        :return: NTP time
+        """
+        client = ntplib.NTPClient()
+        response = client.request('pool.ntp.org')
+        return datetime.strptime(ctime(response.tx_time), "%a %b %d %H:%M:%S %Y")
+
+    now = get_ntp_time()
     delta = (execute_date - now).total_seconds()
 
     if delta <= 0:

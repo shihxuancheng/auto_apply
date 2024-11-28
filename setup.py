@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='auto-apply',
-    version='1.0.1',
+    version='0.0.2',
     packages=find_packages(),
     install_requires=[
         'selenium==4.26.1',
@@ -13,6 +13,8 @@ setup(
             'auto-apply=src.auto_apply:main',
         ],
     },
+    author='Richard hih',
+    author_email='shihxuancheng@gmail.com',
     classifiers=[
         'Programming Language :: Python :: 3.11',
         'License :: OSI Approved :: MIT License',

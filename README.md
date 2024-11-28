@@ -12,11 +12,11 @@
    Python 3.11.1
 ```
 
-2. 下載 & 安裝 [auto-apply.zip](https://github.com/shihxuancheng/auto_apply/releases/download/v0.0.1/auto-apply.zip)
+2. 下載 & 安裝 [auto-apply.zip](https://github.com/shihxuancheng/auto_apply/releases/download/v0.0.2/auto-apply.zip)
 ，下載後請解壓縮至本機路徑，例如c:\auto-applyru, 接著執行以下指令:
 
 ```shell
-   c:\auto-apply> pip install auto-apply.whl
+   c:\auto-apply> pip install auto_apply-0.0.2-py3-none-any.whl
 ```
 驗證安裝否正確？請開啟command window，輸入以下指令:
 ``` shell
