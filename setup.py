@@ -6,7 +6,8 @@ setup(
     packages=find_packages(),
     install_requires=[
         'selenium==4.26.1',
-        'tqdm==4.67.0'
+        'tqdm==4.67.0',
+        'ntplib==0.4.0'
     ],
     entry_points={
         'console_scripts': [

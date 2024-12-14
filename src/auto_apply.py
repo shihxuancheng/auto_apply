@@ -1,5 +1,6 @@
 import argparse
 import configparser
+import shutil
 import logging
 import os
 import sys
@@ -12,6 +13,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.chrome.service import Service
 from tqdm import tqdm
 from time import ctime
 
@@ -80,7 +82,11 @@ def _verify_webdriver() -> None:
     驗證webdriver是否正確安裝
     """
     try:
-        driver = webdriver.Chrome()
+        options = webdriver.ChromeOptions()
+        options.add_argument('--incognito')
+        options.add_argument('--headless')
+        service = Service(_find_chromedriver())
+        driver = webdriver.Chrome(service=service, options=options)
         driver.quit()
         _logger.info("Webdriver is installed correctly.")
     except Exception as e:
@@ -88,6 +94,31 @@ def _verify_webdriver() -> None:
         _logger.error(traceback.print_exc())
         raise
 
+
+def _find_chromedriver():
+    # 方法1：使用 shutil.which()
+    path = shutil.which('chromedriver')
+    if path:
+        return path
+
+    # 方法2：檢查常見路徑
+    common_paths = [
+        '/usr/bin/chromedriver',
+        '/usr/local/bin/chromedriver',
+        os.path.expanduser('~/chromedriver')
+    ]
+
+    for common_path in common_paths:
+        if os.path.exists(common_path):
+            return common_path
+
+    # 方法3：遍歷 PATH
+    for path in os.environ.get('PATH', '').split(os.pathsep):
+        potential_path = os.path.join(path, 'chromedriver')
+        if os.path.exists(potential_path):
+            return potential_path
+
+    return None
 
 def _do_apply_leave(default_config: dict, apply_data: dict, driver: webdriver) -> None:
     """
@@ -170,7 +201,7 @@ def _waiting_to_run(execute_date: datetime) -> None:
         time.sleep(1)
 
 
-def _pre_load_driver(default_config: dict) -> webdriver:
+def _pre_load_driver(default_config: dict, chromedriver_url_str: str=None) -> webdriver:
     """
     載入具有默認配置的webdriver
     參數:
@@ -183,7 +214,9 @@ def _pre_load_driver(default_config: dict) -> webdriver:
     options = webdriver.ChromeOptions()
     for option in default_config["browser_options"].split(","):
         options.add_argument(option)
-    driver = webdriver.Chrome(options)
+
+    driver = webdriver.Remote(chromedriver_url_str, options=options) if chromedriver_url_str else webdriver.Chrome(
+    service=Service(_find_chromedriver()), options=options)
     return driver
 
 
@@ -199,7 +232,14 @@ def main():
     parser.add_argument("--config", "-c", type=str, help="Path to the configuration file")
     parser.add_argument("--execute_date", "-d", type=_valid_date, help="Date in the format: 'YYYY-MM-DD HH:MM:SS'")
 
+    # remote chrome driver
+    parser.add_argument('--driver-url', type=str, help='Remote WebDriver URL')
+    parser.add_argument('--driver-port', type=str, help='Remote WebDriver Port')
+
     args = parser.parse_args()
+
+    if (args.driver_url is None) != (args.driver_port is None):
+        parser.error('the url and port must be provided together')
 
     # load config file
     if args.config:
@@ -215,7 +255,10 @@ def main():
         sys.exit(0)
 
     # do the auto apply process
-    driver = _pre_load_driver(default_config)
+    if args.driver_url and args.driver_port:
+        driver = _pre_load_driver(default_config, f"http://{args.driver_url}:{args.driver_port}")
+    else:
+        driver = _pre_load_driver(default_config)
 
     if args.execute_date:
         _waiting_to_run(args.execute_date)
