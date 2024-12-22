@@ -8,7 +8,7 @@
         <array>
             <string>zsh</string>
             <string>-c</string>
-            <string>/Users/shihxuancheng/Projects/python/auto_apply_leave/schedule-run.sh</string>
+            <string>/Users/shihxuancheng/Projects/python/auto_apply_leave/schedule/schedule-run.sh</string>
         </array>
         <key>StartCalendarInterval</key>
         <dict>
