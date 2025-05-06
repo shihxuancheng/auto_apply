@@ -10,6 +10,7 @@ import ntplib
 from datetime import datetime
 
 from selenium import webdriver
+from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -99,6 +100,7 @@ def _find_chromedriver():
     # 方法1：使用 shutil.which()
     path = shutil.which('chromedriver')
     if path:
+        _logger.info(f"Found chromedriver at: {path}")
         return path
 
     # 方法2：檢查常見路徑
@@ -110,17 +112,20 @@ def _find_chromedriver():
 
     for common_path in common_paths:
         if os.path.exists(common_path):
+            _logger.info(f"Found chromedriver at: {common_path}")
             return common_path
 
     # 方法3：遍歷 PATH
     for path in os.environ.get('PATH', '').split(os.pathsep):
         potential_path = os.path.join(path, 'chromedriver')
         if os.path.exists(potential_path):
+            _logger.info(f"Found chromedriver at: {potential_path}")
             return potential_path
 
     return None
 
-def _do_apply_leave(default_config: dict, apply_data: dict, driver: webdriver) -> None:
+
+def _do_apply_leave(default_config: dict, apply_data: dict, driver: WebDriver) -> None:
     """
     根據提供的默認配置和申請數據，自動提交請假申請。
 
@@ -180,6 +185,7 @@ def _waiting_to_run(execute_date: datetime) -> None:
     :param 日期:
     :return:
     """
+
     def get_ntp_time():
         """
         Get the NTP time
@@ -201,7 +207,7 @@ def _waiting_to_run(execute_date: datetime) -> None:
         time.sleep(1)
 
 
-def _pre_load_driver(default_config: dict, chromedriver_url_str: str=None) -> webdriver:
+def _pre_load_driver(default_config: dict, chromedriver_url_str: str = None) -> webdriver:
     """
     載入具有默認配置的webdriver
     參數:
@@ -211,12 +217,18 @@ def _pre_load_driver(default_config: dict, chromedriver_url_str: str=None) -> we
     """
     _logger.info("Pre-load the webdriver.")
 
-    options = webdriver.ChromeOptions()
-    for option in default_config["browser_options"].split(","):
-        options.add_argument(option)
+    try:
+        options = webdriver.ChromeOptions()
+        for option in default_config["browser_options"].split(","):
+            options.add_argument(option)
 
-    driver = webdriver.Remote(chromedriver_url_str, options=options) if chromedriver_url_str else webdriver.Chrome(
-    service=Service(_find_chromedriver()), options=options)
+        driver = webdriver.Remote(chromedriver_url_str, options=options) if chromedriver_url_str else webdriver.Chrome(
+            service=Service(_find_chromedriver()), options=options)
+    except Exception as e:
+        _logger.error(f"Error occurred while initializing the webdriver: {e}")
+        _logger.error(traceback.print_exc())
+        raise
+
     return driver
 
 

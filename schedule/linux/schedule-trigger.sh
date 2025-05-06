@@ -51,6 +51,16 @@ echo "執行時間: $datetime"
 echo "執行腳本: $script_path"
 echo "等待時間: $(($duration / 86400)) 天 $(($duration % 86400 / 3600)) 小時 $((($duration % 3600) / 60)) 分鐘"
 
+# 計算喚醒時間（提前5分鐘）
+wake_time=$((target_timestamp - 300))
+
+# 設定 rtcwake 喚醒系統
+#sudo rtcwake -m no -t $wake_time
+#if [ $? -ne 0 ]; then
+#    echo "錯誤：無法設定 rtcwake"
+#    exit 1
+#fi
+
 # 建立 at 指令內容（使用完整路徑）
 at_command="$script_path"
 
@@ -63,12 +73,19 @@ fi
 
 echo "已成功設定 at 排程"
 
+# 編輯邏輯掛起設定 (停止系統休眠)
+#sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
+
 # 執行 systemd-inhibit
 echo "啟動 systemd-inhibit 保持系統運作..."
 sudo systemd-inhibit --what="sleep:idle" \
                 --who="schedule_keeper" \
                 --why="等待執行排程腳本：$script_path 於 $datetime" \
                 /bin/bash -c "sleep $duration && echo '目標時間已到，釋放系統限制'"
+
+# 開啟系統省電設定
+#sudo systemctl unmask sleep.target suspend.target hibernate.target hybrid-sleep.target
+#sudo systemctl start sleep.target suspend.target hibernate.target hybrid-sleep.target
 
 # 檢查最終執行狀態
 if [ $? -eq 0 ]; then

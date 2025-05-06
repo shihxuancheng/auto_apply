@@ -6,3 +6,4 @@ auto-apply
 build
 /auto_apply.egg-info/
 --pycache__
+dist

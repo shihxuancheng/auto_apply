@@ -8,6 +8,7 @@ selenium = "*"
 tqdm = "*"
 ntplib = "*"
 auto-apply = {file = "."}
+build = "*"
 
 [dev-packages]
 
