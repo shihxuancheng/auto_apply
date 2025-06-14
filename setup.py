@@ -2,12 +2,13 @@ from setuptools import setup, find_packages
 
 setup(
     name='auto-apply',
-    version='0.0.2',
+    version='0.0.3',
     packages=find_packages(),
     install_requires=[
         'selenium==4.26.1',
         'tqdm==4.67.0',
-        'ntplib==0.4.0'
+        'ntplib==0.4.0',
+        'apscheduler==3.11.0'
     ],
     entry_points={
         'console_scripts': [
