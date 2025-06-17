@@ -214,14 +214,18 @@ def _valid_date(s):
         raise argparse.ArgumentTypeError(f"Not a valid date: '{s}'.")
 
 
-def _get_ntp_time() -> datetime:
+def _get_ntp_time(ntp_server: None) -> datetime:
     """
     獲取 NTP 時間
     :return: NTP 時間
     """
     try:
         client = ntplib.NTPClient()
-        response = client.request('pool.ntp.org')
+        # 從配置文件讀取 NTP 服務器，如果未設置則使用默認值
+        ntp_server_addr = 'pool.ntp.org'
+        if ntp_server:
+            ntp_server_addr = ntp_server
+        response = client.request(ntp_server_addr)
         return datetime.fromtimestamp(response.tx_time)
     except Exception as e:
         _logger.error(f"獲取 NTP 時間失敗: {e}")
@@ -244,7 +248,8 @@ def _waiting_to_run(execute_date: datetime) -> None:
         return
 
     # 獲取當前 NTP 時間
-    current_ntp_time = _get_ntp_time()
+    current_ntp_time = _get_ntp_time(default_config['ntp_server'])
+
     _logger.info(f"當前 NTP 時間: {current_ntp_time}")
     _logger.info(f"目標 執行時間: {execute_date}")
 
@@ -255,7 +260,11 @@ def _waiting_to_run(execute_date: datetime) -> None:
 
     scheduler = BlockingScheduler()
 
+    # 设置全局变量以控制程序退出
+    job_done = False
+
     def scheduled_job():
+        nonlocal job_done
         try:
             # 執行請假操作
             _do_apply_leave(default_config, apply_data, driver)
@@ -263,7 +272,18 @@ def _waiting_to_run(execute_date: datetime) -> None:
             _logger.error(f"執行任務時發生錯誤: {e}")
             _logger.error(traceback.format_exc())
         finally:
-            scheduler.shutdown()
+            # 标记任务已完成
+            job_done = True
+
+            # 使用单独的线程安全地关闭调度器和退出程序
+            def safe_shutdown():
+                scheduler.shutdown(wait=False)
+                _logger.info("任務已完成，程序結束")
+                # 强制退出程序
+                os._exit(0)
+
+            # 启动关闭线程
+            threading.Thread(target=safe_shutdown).start()
 
     # 计算 NTP 时间与本地时间的差异
     local_time = datetime.now()
