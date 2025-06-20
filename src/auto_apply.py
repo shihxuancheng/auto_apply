@@ -377,17 +377,25 @@ def main():
     _logger = _init_log()
 
     # 建立解析器
-    parser = argparse.ArgumentParser(description='AutoApply - Command line arguments')
+    parser = argparse.ArgumentParser(
+        description='AutoApply - Command line arguments',
+        epilog='Version 0.0.4 - A tool to automate leave applications'
+    )
 
     parser.add_argument("--dry-run", action="store_true", help="Dry run mode")
     parser.add_argument("--config", "-c", type=str, help="Path to the configuration file")
     parser.add_argument("--execute_date", "-d", type=_valid_date, help="Date in the format: 'YYYY-MM-DD HH:MM:SS'")
+    parser.add_argument("--version", "-v", action="store_true", help="Show version information")
 
     # remote chrome driver
     parser.add_argument('--driver-url', type=str, help='Remote WebDriver URL')
     parser.add_argument('--driver-port', type=str, help='Remote WebDriver Port')
 
     args = parser.parse_args()
+
+    if args.version:
+        print("AutoApply version 0.0.4")
+        sys.exit(0)
 
     if (args.driver_url is None) != (args.driver_port is None):
         parser.error('the url and port must be provided together')
@@ -417,7 +425,7 @@ def main():
     target_url = default_config["base_url"] + "/viewform" + "?" + "&".join(
         [f"{key}={value}" for key, value in apply_data.items()]
     )
-    _logger.info(f"Target URL: {target_url}")
+    # _logger.info(f"Target URL: {target_url}")
 
     if args.execute_date:
         # 有指定執行時間，使用排程執行

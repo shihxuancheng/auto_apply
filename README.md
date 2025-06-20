@@ -22,17 +22,23 @@
 ``` shell
    c:\autoa-pply> auto-apply --help
    
-   usage: auto-apply [-h] [--dry-run] [--config CONFIG] [--execute_date EXECUTE_DATE]
+    usage: auto-apply [-h] [--dry-run] [--config CONFIG] [--execute_date EXECUTE_DATE] [--version] [--driver-url DRIVER_URL] [--driver-port DRIVER_PORT]
+    
+    AutoApply - Command line arguments
+    
+    options:
+      -h, --help            show this help message and exit
+      --dry-run             Dry run mode
+      --config CONFIG, -c CONFIG
+                            Path to the configuration file
+      --execute_date EXECUTE_DATE, -d EXECUTE_DATE
+                            Date in the format: 'YYYY-MM-DD HH:MM:SS'
+      --version, -v         Show version information
+      --driver-url DRIVER_URL
+                            Remote WebDriver URL
+      --driver-port DRIVER_PORT
+                            Remote WebDriver Port
 
-   AutoApply - Command line arguments
-
-   options:
-     -h, --help            show this help message and exit
-     --dry-run             Dry run mode
-     --config CONFIG, -c CONFIG
-                           Path to the configuration file
-     --execute_date EXECUTE_DATE, -d EXECUTE_DATE
-                           Date in the format: 'YYYY-MM-DD HH:MM:SS'   
 ```
 
 ## Configuration
@@ -42,8 +48,9 @@
 [default]
 browser_options=--incognito, --headless
 submit_form_id = mG61Hd
+ntp_server=;指定ntp server，預設為pool.ntp.org
 submit_button_id = div[aria-label='Submit']
-base_url= https://docs.google.com/forms/d/1hHHrf19cWw0Nn8C0RIgOwXwhcUQJSuNpqMoQCERuQVI
+base_url= ;請填入google form的網址
 
 [apply_data];以下為填入google form的欄位資料
 entry.1181820941= ;請填入姓名
