@@ -96,3 +96,5 @@ entry.1288315452= ;請填入請假密碼
 - https://developer.chrome.com/docs/chromedriver/get-started?hl=zh-tw
 - [webdriver for new chrome version](https://googlechromelabs.github.io/chrome-for-testing/)
 - [webdriver for old chrome version](https://developer.chrome.com/docs/chromedriver/downloads?hl=zh-tw)
+
+This is a test line added by Gemini.
