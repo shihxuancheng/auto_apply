@@ -379,7 +379,7 @@ def main():
     # 建立解析器
     parser = argparse.ArgumentParser(
         description='AutoApply - Command line arguments',
-        epilog='Version 0.0.4 - A tool to automate leave applications'
+        epilog='Version 0.0.5 - A tool to automate leave applications'
     )
 
     parser.add_argument("--dry-run", action="store_true", help="Dry run mode")
@@ -394,7 +394,7 @@ def main():
     args = parser.parse_args()
 
     if args.version:
-        print("AutoApply version 0.0.4")
+        print("AutoApply version 0.0.5")
         sys.exit(0)
 
     if (args.driver_url is None) != (args.driver_port is None):
