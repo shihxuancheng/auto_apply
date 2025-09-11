@@ -27,15 +27,29 @@ apply_data = None
 WAIT_TIMEOUT = 10
 
 
-def wait_and_find_element(driver: WebDriver, by: By, value: str, timeout: int = WAIT_TIMEOUT):
-    """等待並查找元素"""
+def _do_preload_page(driver: WebDriver,url: str, by: By, value: str, timeout: int = WAIT_TIMEOUT):
+    """
+        預載入指定頁面並等待元素出現
+
+        Args:
+            driver: WebDriver實例
+            url: 要載入的URL
+            by: 元素定位方式
+            value: 元素定位值
+            timeout: 等待超時時間，預設為WAIT_TIMEOUT
+
+        Returns:
+            找到的元素
+        """
+
+    driver.get(url)
     return WebDriverWait(driver, timeout).until(
         lambda d: d.execute_script("return document.readyState") == "complete"
                   and EC.presence_of_element_located((by, value))
     )
 
 
-def wait_and_click_button(driver: WebDriver, selector: str, timeout: int = WAIT_TIMEOUT):
+def _do_click_button(driver: WebDriver, selector: str, timeout: int = WAIT_TIMEOUT):
     """等待並點擊按鈕"""
     button = WebDriverWait(driver, timeout).until(
         EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
@@ -152,29 +166,27 @@ def _pre_load_driver(chromedriver_url_str: str = None) -> webdriver:
     return driver
 
 
-def _pre_load_form(execute_date: datetime, chromedriver_url_str: str = None) -> None:
+def _do_apply(execute_date: datetime, chromedriver_url_str: str = None) -> None:
     """
     預先載入表單頁面，並在指定時間點擊提交按鈕。
     此函數會創建兩個 WebDriver 實例，並使用多線程在不同時間點擊按鈕。
     """
-    global target_url, default_config, apply_data
+    global target_url, default_config
 
-    def click_action(click_time: datetime, button_selector: str, driver_url: str = None):
+    def click_button_action(click_time: datetime, button_selector: str, driver_url: str = None):
         """在指定時間點擊按鈕的任務"""
         driver = None
         try:
             driver = _pre_load_driver(driver_url)
-            driver.get(target_url)
-            wait_and_find_element(driver, By.CSS_SELECTOR, button_selector)
+            _do_preload_page(driver,target_url, By.CSS_SELECTOR, button_selector)
+            _logger.info(f"執行序 {threading.get_ident()} 已載入頁面")
             
             wait_seconds = (click_time - _get_ntp_time(default_config.get('ntp_server'))).total_seconds()
             
             if wait_seconds > 0:
-                _logger.info(f"執行緒 {threading.get_ident()} 等待 {wait_seconds:.3f} 秒至 {click_time}")
                 time.sleep(wait_seconds)
 
-            # _logger.info(f"執行緒 {threading.get_ident()} 在 {_get_ntp_time(default_config.get('ntp_server'))} 嘗試點擊按鈕")
-            wait_and_click_button(driver, button_selector)
+            _do_click_button(driver, button_selector)
 
             _logger.info(f"執行緒 {threading.get_ident()} 提交成功")
 
@@ -195,8 +207,8 @@ def _pre_load_form(execute_date: datetime, chromedriver_url_str: str = None) -> 
         early_click_time = execute_date - timedelta(milliseconds=500)
         button_selector = default_config["submit_button_id"]
 
-        thread_main = threading.Thread(target=click_action, args=(main_click_time, button_selector, chromedriver_url_str))
-        thread_early = threading.Thread(target=click_action, args=(early_click_time, button_selector, chromedriver_url_str))
+        thread_main = threading.Thread(target=click_button_action, args=(main_click_time, button_selector, chromedriver_url_str))
+        thread_early = threading.Thread(target=click_button_action, args=(early_click_time, button_selector, chromedriver_url_str))
 
         _logger.info(f"啟動主要執行緒，預計點擊時間: {main_click_time}")
         thread_main.start()
@@ -249,13 +261,13 @@ def _waiting_to_run(execute_date: datetime, chromedriver_url_str: str = None) ->
     local_time = datetime.now()
     _logger.info(f"本地時間: {local_time}")
     ntp_local_diff = (current_ntp_time - local_time).total_seconds()
-    _logger.info(f"[時間差]: {ntp_local_diff}")
+    _logger.info(f"[時間差]: {ntp_local_diff} seconds")
 
     # 调整执行时间，考虑本地时间与 NTP 时间的差异
     adjusted_execute_date = execute_date - timedelta(seconds=ntp_local_diff)
 
     # 直接調用新的表單處理函數，它內部會處理等待和多線程點擊
-    _pre_load_form(adjusted_execute_date, chromedriver_url_str)
+    _do_apply(adjusted_execute_date, chromedriver_url_str)
 
 
 def main():
@@ -292,6 +304,7 @@ def main():
     target_url = default_config["base_url"] + "/viewform" + "?" + "&".join(
         [f"{key}={value}" for key, value in apply_data.items()]
     )
+    _logger.info(f"預計連線至: {target_url}")
     
     chromedriver_url = f"http://{args.driver_url}:{args.driver_port}" if args.driver_url and args.driver_port else None
 
@@ -301,7 +314,7 @@ def main():
         else:
             _logger.info("未指定執行時間，將在2秒後立即執行")
             now_execute_time = _get_ntp_time(default_config.get('ntp_server')) + timedelta(seconds=2)
-            _pre_load_form(now_execute_time, chromedriver_url)
+            _do_apply(now_execute_time, chromedriver_url)
     except Exception as e:
         _logger.error(f"執行過程發生錯誤: {e}")
         _logger.error(traceback.format_exc())
