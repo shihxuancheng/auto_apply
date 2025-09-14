@@ -239,6 +239,7 @@ def _waiting_to_run(execute_date: datetime) -> None:
     :param execute_date: 指定執行時間
     """
     global driver, target_url, default_config, apply_data
+    pre_launch_time = 0.1 #預先啟動時間(秒)
 
     try:
         # 預先載入表單
@@ -250,15 +251,14 @@ def _waiting_to_run(execute_date: datetime) -> None:
     # 獲取當前 NTP 時間
     current_ntp_time = _get_ntp_time(default_config['ntp_server'])
 
-    _logger.info(f"當前 NTP 時間: {current_ntp_time}")
     _logger.info(f"目標 執行時間: {execute_date}")
+    _logger.info(f"當前 NTP 時間: {current_ntp_time}")
+
 
     # 檢查時間是否已過期
     if current_ntp_time > execute_date:
         _logger.error("指定的執行時間已過期")
         return
-
-    scheduler = BlockingScheduler()
 
     # 设置全局变量以控制程序退出
     job_done = False
@@ -287,12 +287,15 @@ def _waiting_to_run(execute_date: datetime) -> None:
 
     # 计算 NTP 时间与本地时间的差异
     local_time = datetime.now()
+    _logger.info(f"本地時間: {local_time}")
     ntp_local_diff = (current_ntp_time - local_time).total_seconds()
+    _logger.info(f"時間差: {ntp_local_diff}")
 
     # 调整执行时间，考虑本地时间与 NTP 时间的差异
-    adjusted_execute_date = execute_date - timedelta(seconds=ntp_local_diff)
+    adjusted_execute_date = execute_date - timedelta(seconds=ntp_local_diff) - timedelta(seconds=pre_launch_time)
 
     # 添加主要任務，使用調整後的執行時間
+    scheduler = BlockingScheduler()
     job = scheduler.add_job(
         scheduled_job,
         trigger=DateTrigger(run_date=adjusted_execute_date),
