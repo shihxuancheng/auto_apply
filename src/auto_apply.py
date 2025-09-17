@@ -239,7 +239,7 @@ def _waiting_to_run(execute_date: datetime) -> None:
     :param execute_date: 指定執行時間
     """
     global driver, target_url, default_config, apply_data
-    pre_launch_time = 0.1 #預先啟動時間(秒)
+    pre_launch_time = float(default_config.get('prelaunch_time', 0.1))
 
     try:
         # 預先載入表單
@@ -337,7 +337,7 @@ def _waiting_to_run(execute_date: datetime) -> None:
     # )
 
     try:
-        _logger.info(f"任務已排程，將在 {adjusted_execute_date} 執行")
+        _logger.info(f"任務已排程，預先:{pre_launch_time}秒，將在 {adjusted_execute_date} 執行")
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):
         scheduler.shutdown()
