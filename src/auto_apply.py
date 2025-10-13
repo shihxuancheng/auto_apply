@@ -16,39 +16,39 @@ from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 _logger = None
 target_url = None
 
-# Constants
-WAIT_TIMEOUT = 10000  # Playwright uses milliseconds
+# 常數
+WAIT_TIMEOUT = 10000  # Playwright 使用毫秒
 
 
 async def wait_and_find_element(page: Page, selector: str, timeout: int = WAIT_TIMEOUT):
-    """Wait and find an element"""
+    """等待並找到一個元素"""
     return await page.wait_for_selector(selector, timeout=timeout)
 
 
 async def wait_and_click_button(page: Page, selector: str, timeout: int = WAIT_TIMEOUT):
-    """Wait and click a button"""
+    """等待並點擊一個按鈕"""
     button = await page.wait_for_selector(selector, state='visible', timeout=timeout)
     await button.click()
 
 
 def _init_log() -> logging.Logger:
-    # Set log format
+    # 設定日誌格式
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
-    # Create logger
+    # 建立 logger
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
 
-    # Create file handler
+    # 建立檔案處理器
     log_path = os.path.join(os.path.curdir, "auto_apply.log")
     file_handler = logging.FileHandler(log_path)
     file_handler.setFormatter(formatter)
 
-    # Create console handler
+    # 建立控制台處理器
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
 
-    # Add handlers to the logger
+    # 將處理器新增至 logger
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
     return logger
@@ -56,80 +56,80 @@ def _init_log() -> logging.Logger:
 
 def _load_config(config_file: str) -> tuple:
     """
-    Load configuration file and return config data.
+    載入設定檔並返回設定資料。
     """
     try:
-        _logger.info(f"Loading config file: {config_file}")
+        _logger.info(f"載入設定檔: {config_file}")
         config = configparser.ConfigParser()
         config.read(config_file, encoding="utf-8")
         default_config = dict(config.items("default"))
         apply_data = dict(config.items("apply_data"))
         return default_config, apply_data
     except (configparser.NoSectionError, configparser.NoOptionError) as e:
-        _logger.error(f"Error reading config file: {e}")
+        _logger.error(f"讀取設定檔錯誤: {e}")
         sys.exit(1)
     except Exception as e:
-        _logger.error(f"Error occurred: {e}")
+        _logger.error(f"發生錯誤: {e}")
         _logger.error(traceback.format_exc())
         raise
 
 
 async def _verify_playwright() -> None:
     """
-    Verify if Playwright is installed correctly.
+    驗證 Playwright 是否安裝正確。
     """
     try:
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             await browser.close()
-        _logger.info("Playwright is installed correctly.")
+        _logger.info("Playwright 安裝正確。")
     except Exception as e:
-        _logger.error(f"Error occurred: {e}")
+        _logger.error(f"發生錯誤: {e}")
         _logger.error(traceback.format_exc())
         raise
 
 
 async def _pre_load_form(page: Page, submit_form_id: str) -> None:
-    """Pre-load the form page"""
+    """預先載入表單頁面"""
     try:
         current_url = page.url
         if current_url != target_url:
-            _logger.info(f"Currently URL: {current_url}")
-            _logger.info(f"Navigating to: {target_url}")
+            _logger.info(f"目前網址: {current_url}")
+            _logger.info(f"導覽至: {target_url}")
             await page.goto(target_url)
 
-        # Confirm the form has loaded
+        # 確認表單已載入
         await wait_and_find_element(page, f"#{submit_form_id}")
-        _logger.info("Form pre-loaded successfully")
+        _logger.info("表單預載成功")
 
     except PlaywrightTimeoutError:
-        _logger.error("Timeout waiting for element")
+        _logger.error("等待元素超時")
         raise
     except Exception as e:
-        _logger.error(f"Error pre-loading form: {e}")
+        _logger.error(f"預載表單錯誤: {e}")
         _logger.error(traceback.format_exc())
         raise
 
 
 async def _do_apply_leave(page: Page, submit_button_id: str, apply_data: dict) -> None:
-    """Execute the leave application submission"""
+    """執行請假申請提交"""
     try:
-        # Click the submit button
+        # 點擊提交按鈕
         await wait_and_click_button(page, f"#{submit_button_id}")
 
-        # Wait for page navigation
+        # 等待頁面導覽
         await page.wait_for_url(f"{target_url.split('?')[0]}/formResponse", timeout=WAIT_TIMEOUT)
 
-        # Log success message
+        # 記錄成功訊息
         params = "\n".join([f"{key}={value}" for key, value in apply_data.items()])
-        _logger.info(f"Leave application submitted successfully, parameters:\n{params}")
+        _logger.info(f"請假申請提交成功，參數:\n{params}")
 
-        await asyncio.sleep(1)  # Delay to ensure form submission is processed
+        await asyncio.sleep(1)  # 延遲以確保表單提交被處理
 
     except PlaywrightTimeoutError:
-        _logger.error("Timeout waiting for element")
+        _logger.error("等待元素超時")
     except Exception as e:
-        _logger.error(f"Error submitting form: {e}")
+        _logger.error(f"提交表單錯誤: {e}")
         _logger.error(traceback.format_exc())
     finally:
         await page.browser.close()
@@ -139,12 +139,12 @@ def _valid_date(s):
     try:
         return datetime.strptime(s, "%Y-%m-%d %H:%M:%S")
     except ValueError:
-        raise argparse.ArgumentTypeError(f"Not a valid date: '{s}'.")
+        raise argparse.ArgumentTypeError(f"不是有效的日期: '{s}'.")
 
 
 def _get_ntp_time(ntp_server: str = None) -> datetime:
     """
-    Get NTP time.
+    取得 NTP 時間。
     """
     try:
         client = ntplib.NTPClient()
@@ -152,7 +152,7 @@ def _get_ntp_time(ntp_server: str = None) -> datetime:
         response = client.request(ntp_server_addr)
         return datetime.fromtimestamp(response.tx_time)
     except Exception as e:
-        _logger.error(f"Failed to get NTP time: {e}")
+        _logger.error(f"取得 NTP 時間失敗: {e}")
         _logger.error(traceback.format_exc())
         return datetime.now()
 
@@ -164,7 +164,7 @@ async def scheduled_job(p: Playwright, browser_options: dict, driver_url: str, d
         await _pre_load_form(page, default_config["submit_form_id"])
         await _do_apply_leave(page, default_config["submit_button_id"], apply_data)
     except Exception as e:
-        _logger.error(f"Error during scheduled job: {e}")
+        _logger.error(f"排程工作期間發生錯誤: {e}")
         _logger.error(traceback.format_exc())
     finally:
         await browser.close()
@@ -172,26 +172,26 @@ async def scheduled_job(p: Playwright, browser_options: dict, driver_url: str, d
 
 async def _waiting_to_run(execute_date: datetime, default_config, apply_data, browser_options, driver_url) -> None:
     """
-    Use APScheduler to execute the task at the specified NTP time.
+    使用 APScheduler 在指定的 NTP 時間執行任務。
     """
     pre_launch_time = float(default_config.get('prelaunch_time', 0.1))
 
-    # Get current NTP time
+    # 取得目前 NTP 時間
     current_ntp_time = _get_ntp_time(default_config.get('ntp_server'))
-    _logger.info(f"Target execution time: {execute_date}")
-    _logger.info(f"Current NTP time: {current_ntp_time}")
+    _logger.info(f"目標執行時間: {execute_date}")
+    _logger.info(f"目前 NTP 時間: {current_ntp_time}")
 
-    # Check if the time has already passed
+    # 檢查時間是否已過
     if current_ntp_time > execute_date:
-        _logger.error("The specified execution time has already passed.")
+        _logger.error("指定的執行時間已過。")
         return
 
-    # Calculate the difference between NTP time and local time
+    # 計算 NTP 時間與本地時間的差異
     local_time = datetime.now()
     ntp_local_diff = (current_ntp_time - local_time).total_seconds()
-    _logger.info(f"Time difference (NTP - local): {ntp_local_diff:.3f} seconds")
+    _logger.info(f"時間差異 (NTP - 本地): {ntp_local_diff:.3f} 秒")
 
-    # Adjust execution time considering the difference
+    # 考慮差異調整執行時間
     adjusted_execute_date = execute_date - timedelta(seconds=ntp_local_diff) - timedelta(
         seconds=pre_launch_time)
 
@@ -206,31 +206,31 @@ async def _waiting_to_run(execute_date: datetime, default_config, apply_data, br
 
         try:
             _logger.info(
-                f"Task scheduled, pre-launching: {pre_launch_time} seconds, will run at {adjusted_execute_date}")
+                f"任務已排程，預先啟動: {pre_launch_time} 秒，將於 {adjusted_execute_date} 執行")
             scheduler.start()
             while True:
                 await asyncio.sleep(1)
         except (KeyboardInterrupt, SystemExit):
             scheduler.shutdown()
-            _logger.info("Task scheduling cancelled.")
+            _logger.info("任務排程已取消。")
         except Exception as e:
-            _logger.error(f"Error during scheduling: {e}")
+            _logger.error(f"排程期間發生錯誤: {e}")
             _logger.error(traceback.format_exc())
             scheduler.shutdown()
 
 
 async def _pre_load_browser(playwright: Playwright, browser_options: dict, driver_url: str = None) -> Browser:
     """
-    Load the browser with default configurations.
+    使用預設設定載入瀏覽器。
     """
-    _logger.info("Pre-loading the browser.")
+    _logger.info("預先載入瀏覽器。")
     try:
         if driver_url:
             browser = await playwright.chromium.connect(driver_url, **browser_options)
         else:
             browser = await playwright.chromium.launch(**browser_options)
     except Exception as e:
-        _logger.error(f"Error occurred while initializing the browser: {e}")
+        _logger.error(f"初始化瀏覽器時發生錯誤: {e}")
         _logger.error(traceback.format_exc())
         raise
 
