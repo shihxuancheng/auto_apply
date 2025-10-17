@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import configparser
 import logging
+import ast
 import os
 import sys
 import traceback
@@ -14,7 +15,6 @@ from playwright.async_api import async_playwright, Playwright, Browser, Page
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 _logger = None
-target_url = None
 
 # 常數
 WAIT_TIMEOUT = 10000  # Playwright 使用毫秒
@@ -89,7 +89,7 @@ async def _verify_playwright() -> None:
         raise
 
 
-async def _pre_load_form(page: Page, submit_form_id: str) -> None:
+async def _pre_load_form(page: Page, target_url: str, submit_form_id: str) -> None:
     """預先載入表單頁面"""
     try:
         current_url = page.url
@@ -111,14 +111,14 @@ async def _pre_load_form(page: Page, submit_form_id: str) -> None:
         raise
 
 
-async def _do_apply_leave(page: Page, submit_button_id: str, apply_data: dict) -> None:
+async def _do_apply_leave(page: Page, base_url: str, submit_button_id: str, apply_data: dict) -> None:
     """執行請假申請提交"""
     try:
         # 點擊提交按鈕
-        await wait_and_click_button(page, f"#{submit_button_id}")
+        await wait_and_click_button(page, f"{submit_button_id}")
 
         # 等待頁面導覽
-        await page.wait_for_url(f"{target_url.split('?')[0]}/formResponse", timeout=WAIT_TIMEOUT)
+        await page.wait_for_url(f"{base_url.split('?')[0]}/formResponse", timeout=WAIT_TIMEOUT)
 
         # 記錄成功訊息
         params = "\n".join([f"{key}={value}" for key, value in apply_data.items()])
@@ -131,8 +131,6 @@ async def _do_apply_leave(page: Page, submit_button_id: str, apply_data: dict) -
     except Exception as e:
         _logger.error(f"提交表單錯誤: {e}")
         _logger.error(traceback.format_exc())
-    finally:
-        await page.browser.close()
 
 
 def _valid_date(s):
@@ -157,22 +155,20 @@ def _get_ntp_time(ntp_server: str = None) -> datetime:
         return datetime.now()
 
 
-async def scheduled_job(p: Playwright, browser_options: dict, driver_url: str, default_config: dict, apply_data: dict):
-    browser = await _pre_load_browser(p, browser_options, driver_url)
-    page = await browser.new_page()
+async def scheduled_job(job_done_event: asyncio.Event, page: Page, target_url: str, submit_button_id: str, apply_data: dict):
+    """由排程器呼叫的作業，僅執行提交動作。"""
     try:
-        await _pre_load_form(page, default_config["submit_form_id"])
-        await _do_apply_leave(page, default_config["submit_button_id"], apply_data)
+        await _do_apply_leave(page, target_url, submit_button_id, apply_data)
     except Exception as e:
         _logger.error(f"排程工作期間發生錯誤: {e}")
         _logger.error(traceback.format_exc())
     finally:
-        await browser.close()
+        job_done_event.set()
 
 
-async def _waiting_to_run(execute_date: datetime, default_config, apply_data, browser_options, driver_url) -> None:
+async def setup_scheduled_run(page: Page, target_url: str, execute_date: datetime, default_config: dict, apply_data: dict) -> None:
     """
-    使用 APScheduler 在指定的 NTP 時間執行任務。
+    設定 APScheduler 在指定的 NTP 時間執行任務。
     """
     pre_launch_time = float(default_config.get('prelaunch_time', 0.1))
 
@@ -195,40 +191,36 @@ async def _waiting_to_run(execute_date: datetime, default_config, apply_data, br
     adjusted_execute_date = execute_date - timedelta(seconds=ntp_local_diff) - timedelta(
         seconds=pre_launch_time)
 
+    job_done_event = asyncio.Event()
     scheduler = AsyncIOScheduler()
-    async with async_playwright() as p:
-        scheduler.add_job(
-            scheduled_job,
-            trigger=DateTrigger(run_date=adjusted_execute_date),
-            id='apply_leave_job',
-            args=[p, browser_options, driver_url, default_config, apply_data]
-        )
+    scheduler.add_job(
+        scheduled_job,
+        trigger=DateTrigger(run_date=adjusted_execute_date),
+        id='apply_leave_job',
+        args=[job_done_event, page, target_url, default_config["submit_button_id"], apply_data]
+    )
 
-        try:
-            _logger.info(
-                f"任務已排程，預先啟動: {pre_launch_time} 秒，將於 {adjusted_execute_date} 執行")
-            scheduler.start()
-            while True:
-                await asyncio.sleep(1)
-        except (KeyboardInterrupt, SystemExit):
-            scheduler.shutdown()
-            _logger.info("任務排程已取消。")
-        except Exception as e:
-            _logger.error(f"排程期間發生錯誤: {e}")
-            _logger.error(traceback.format_exc())
-            scheduler.shutdown()
+    scheduler.start()
+    _logger.info(
+        f"任務已排程，預先啟動: {pre_launch_time} 秒，將於 {adjusted_execute_date} 執行。等待任務完成...")
+
+    try:
+        await job_done_event.wait()
+        _logger.info("排程任務已執行完畢。")
+    except (KeyboardInterrupt, SystemExit):
+        _logger.info("收到中斷訊號，取消任務排程。")
+    finally:
+        scheduler.shutdown()
+        _logger.info("排程器已關閉。")
 
 
-async def _pre_load_browser(playwright: Playwright, browser_options: dict, driver_url: str = None) -> Browser:
+async def _pre_load_browser(playwright: Playwright, browser_options: dict) -> Browser:
     """
     使用預設設定載入瀏覽器。
     """
     _logger.info("預先載入瀏覽器。")
     try:
-        if driver_url:
-            browser = await playwright.chromium.connect(driver_url, **browser_options)
-        else:
-            browser = await playwright.chromium.launch(**browser_options)
+        browser = await playwright.chromium.launch(**browser_options)
     except Exception as e:
         _logger.error(f"初始化瀏覽器時發生錯誤: {e}")
         _logger.error(traceback.format_exc())
@@ -238,12 +230,12 @@ async def _pre_load_browser(playwright: Playwright, browser_options: dict, drive
 
 
 async def main():
-    global _logger, target_url
+    global _logger
     _logger = _init_log()
 
     parser = argparse.ArgumentParser(
         description='AutoApply - Command line arguments',
-        epilog='Version 0.0.7 - A tool to automate leave applications with Playwright'
+        epilog='Version 0.0.8 - A tool to automate leave applications with Playwright'
     )
 
     parser.add_argument("--dry-run", action="store_true", help="Dry run mode")
@@ -251,17 +243,12 @@ async def main():
     parser.add_argument("--execute_date", "-d", type=_valid_date,
                         help="Date in 'YYYY-MM-DD HH:MM:SS' format")
     parser.add_argument("--version", "-v", action="store_true", help="Show version information")
-    parser.add_argument('--driver-url', type=str, help='Remote WebDriver URL')
-    parser.add_argument('--driver-port', type=str, help='Remote WebDriver Port')
 
     args = parser.parse_args()
 
     if args.version:
-        print("AutoApply version 0.0.7")
+        print("AutoApply version 0.0.8")
         sys.exit(0)
-
-    if (args.driver_url is None) != (args.driver_port is None):
-        parser.error('the url and port must be provided together')
 
     config_path = args.config or os.path.join(os.path.curdir, "config.ini")
     if not os.path.exists(config_path):
@@ -275,7 +262,9 @@ async def main():
         sys.exit(0)
 
     browser_options = {}
+    browser_args = list()
     if "browser_options" in default_config:
+        browser_options['headless'] = False
         for option in default_config["browser_options"].split(","):
             option = option.strip()
             if option == "--headless":
@@ -285,27 +274,34 @@ async def main():
                 pass
             elif "=" in option:
                 key, value = option.split("=", 1)
-                browser_options[key.strip()] = value.strip()
+                browser_options[key.strip()] = ast.literal_eval(value.strip())
+            else:
+                browser_args.append(option)
+        browser_options["args"] = browser_args
 
-    driver_url = f"http://{args.driver_url}:{args.driver_port}" if args.driver_url and args.driver_port else None
+    base_url = default_config["base_url"]
+    target_url = f"{base_url}/viewform?{'&'.join([f'{k}={v}' for k, v in apply_data.items()])}"
 
-    target_url = f"{default_config['base_url']}/viewform?{'&'.join([f'{k}={v}' for k, v in apply_data.items()])}"
+    async with async_playwright() as p:
+        browser = await _pre_load_browser(p, browser_options)
+        page = await browser.new_page()
+        try:
+            # 無論何種模式，都先載入頁面
+            await _pre_load_form(page, target_url, default_config["submit_form_id"])
 
-    if args.execute_date:
-        await _waiting_to_run(args.execute_date, default_config, apply_data, browser_options, driver_url)
-    else:
-        _logger.info("No execution time specified, running immediately.")
-        async with async_playwright() as p:
-            browser = await _pre_load_browser(p, browser_options, driver_url)
-            page = await browser.new_page()
-            try:
-                await _pre_load_form(page, default_config["submit_form_id"])
-                await _do_apply_leave(page, default_config["submit_button_id"], apply_data)
-            except Exception as e:
-                _logger.error(f"Error during execution: {e}")
-                _logger.error(traceback.format_exc())
-            finally:
-                await browser.close()
+            if args.execute_date:
+                # 對於排程執行，傳入已載入的 page 物件
+                await setup_scheduled_run(page, base_url, args.execute_date, default_config, apply_data)
+            else:
+                # 對於立即執行，直接提交
+                _logger.info("未指定執行時間，立即執行。")
+                await _do_apply_leave(page, base_url, default_config["submit_button_id"], apply_data)
+        except Exception as e:
+            _logger.error(f"執行期間發生錯誤: {e}")
+            _logger.error(traceback.format_exc())
+        finally:
+            _logger.info("所有任務完成，關閉瀏覽器。")
+            await browser.close()
 
 
 if __name__ == '__main__':
