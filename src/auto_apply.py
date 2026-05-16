@@ -39,18 +39,19 @@ def _init_log() -> logging.Logger:
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
 
-    # 建立檔案處理器
-    log_path = os.path.join(os.path.curdir, "auto_apply.log")
-    file_handler = logging.FileHandler(log_path)
-    file_handler.setFormatter(formatter)
+    if not logger.handlers:
+        # 建立檔案處理器
+        log_path = os.path.join(os.path.curdir, "auto_apply.log")
+        file_handler = logging.FileHandler(log_path)
+        file_handler.setFormatter(formatter)
 
-    # 建立控制台處理器
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
+        # 建立控制台處理器
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
 
-    # 將處理器新增至 logger
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
+        # 將處理器新增至 logger
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
     return logger
 
 
@@ -155,7 +156,8 @@ def _get_ntp_time(ntp_server: str = None) -> datetime:
         return datetime.now()
 
 
-async def scheduled_job(job_done_event: asyncio.Event, page: Page, target_url: str, submit_button_id: str, apply_data: dict):
+async def scheduled_job(job_done_event: asyncio.Event, page: Page, target_url: str, submit_button_id: str,
+                        apply_data: dict):
     """由排程器呼叫的作業，僅執行提交動作。"""
     try:
         await _do_apply_leave(page, target_url, submit_button_id, apply_data)
@@ -166,7 +168,8 @@ async def scheduled_job(job_done_event: asyncio.Event, page: Page, target_url: s
         job_done_event.set()
 
 
-async def setup_scheduled_run(page: Page, target_url: str, execute_date: datetime, default_config: dict, apply_data: dict) -> None:
+async def setup_scheduled_run(page: Page, target_url: str, execute_date: datetime, default_config: dict,
+                              apply_data: dict) -> None:
     """
     設定 APScheduler 在指定的 NTP 時間執行任務。
     """
@@ -305,4 +308,8 @@ async def main():
 
 
 if __name__ == '__main__':
+    asyncio.run(main())
+
+def cli_main():
+    """Synchronous entry point for the console script."""
     asyncio.run(main())

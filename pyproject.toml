@@ -19,5 +19,22 @@ dependencies = [
     "apscheduler==3.11.0",
 ]
 
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-mock",
+]
+
 [project.scripts]
-auto-apply = "src.auto_apply:main"
+auto-apply = "auto_apply:cli_main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+markers = [
+    "description: 測試案例描述",
+    "unit: marks tests as unit tests",
+    "integration: marks tests as integration tests"
+]
