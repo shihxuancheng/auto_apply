@@ -116,10 +116,12 @@ async def _do_apply_leave(page: Page, base_url: str, submit_button_id: str, appl
     """執行請假申請提交"""
     try:
         # 點擊提交按鈕
+        _logger.info(f"等待點擊提交按鈕: {submit_button_id}")
         await wait_and_click_button(page, f"{submit_button_id}")
+        _logger.info("已點擊提交按鈕，等待頁面導覽...")
 
         # 等待頁面導覽
-        await page.wait_for_url(f"{base_url.split('?')[0]}/formResponse", timeout=WAIT_TIMEOUT)
+        await page.wait_for_url(lambda url: "formResponse" in url, timeout=WAIT_TIMEOUT)
 
         # 記錄成功訊息
         params = "\n".join([f"{key}={value}" for key, value in apply_data.items()])
@@ -127,8 +129,9 @@ async def _do_apply_leave(page: Page, base_url: str, submit_button_id: str, appl
 
         await asyncio.sleep(1)  # 延遲以確保表單提交被處理
 
-    except PlaywrightTimeoutError:
-        _logger.error("等待元素超時")
+    except PlaywrightTimeoutError as e:
+        _logger.error(f"等待超時: {e}")
+        _logger.error(traceback.format_exc())
     except Exception as e:
         _logger.error(f"提交表單錯誤: {e}")
         _logger.error(traceback.format_exc())

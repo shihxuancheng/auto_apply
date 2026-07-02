@@ -1,1 +1,1 @@
-python -m build
+uv build

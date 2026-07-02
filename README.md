@@ -16,21 +16,18 @@ python --version
 ### 2. 安裝專案
 在專案根目錄下執行：
 ```shell
-pip install .
+uv sync
 ```
-如果您是開發者並需要執行測試，請安裝開發依賴：
-```shell
-pip install ".[test]"
-```
+這會建立虛擬環境 `.venv` 並自動安裝所有必要套件與開發/測試依賴。
 
 ### 3. 安裝 Playwright 瀏覽器
 ```shell
-playwright install chromium
+uv run playwright install chromium
 ```
 
 ### 4. 驗證安裝
 ```shell
-auto-apply --help
+uv run auto-apply --help
 ```
 
 ## Configuration
@@ -67,18 +64,18 @@ entry.184210529_day = 07
 ### 1. 測試環境 (Dry Run)
 驗證瀏覽器是否能正常啟動並預載表單：
 ```shell
-auto-apply --dry-run
+uv run auto-apply --dry-run
 ```
 
 ### 2. 立即執行
 ```shell
-auto-apply
+uv run auto-apply
 ```
 
 ### 3. 排程執行
 在指定時間點自動執行：
 ```shell
-auto-apply -d "2025-06-07 08:00:00"
+uv run auto-apply -d "2025-06-07 08:00:00"
 ```
 
 ## Testing
@@ -86,13 +83,13 @@ auto-apply -d "2025-06-07 08:00:00"
 本專案使用 `pytest` 進行測試：
 ```shell
 # 執行所有測試
-pytest
+uv run pytest
 
 # 執行單元測試
-pytest -m unit
+uv run pytest -m unit
 
 # 執行整合測試 (會啟動真實瀏覽器)
-pytest -m integration
+uv run pytest -m integration
 ```
 
 ## Advanced Scheduling

@@ -18,12 +18,11 @@ dependencies = [
     "ntplib==0.4.0",
     "apscheduler==3.11.0",
 ]
-
-[project.optional-dependencies]
-test = [
-    "pytest",
-    "pytest-asyncio",
-    "pytest-mock",
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.4.0",
+    "pytest-mock>=3.15.1",
 ]
 
 [project.scripts]
