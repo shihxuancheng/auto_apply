@@ -40,7 +40,7 @@ uv run auto-apply --help
 browser_options = --incognito, --headless
 ; 表單提交按鈕的 CSS Selector (Google 表單通常為 mG61Hd 或特定的 Submit div)
 submit_form_id = mG61Hd
-submit_button_id = div[aria-label='Submit']
+submit_button_id = div[aria-label='Submit'], div[aria-label='提交']
 ; 表單基礎網址
 base_url = https://docs.google.com/forms/d/e/...
 ; 預先啟動時間 (秒)
