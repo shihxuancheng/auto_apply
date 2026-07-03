@@ -117,7 +117,12 @@ async def test_do_apply_leave(mocker):
     await _do_apply_leave(mock_page, "http://base.url?p=1", "#submit_id", {'data': 'test'})
 
     mock_wait_and_click.assert_called_once_with(mock_page, "#submit_id")
-    mock_page.wait_for_url.assert_called_once_with("http://base.url/formResponse", timeout=10000)
+    assert mock_page.wait_for_url.call_count == 1
+    args, kwargs = mock_page.wait_for_url.call_args
+    assert callable(args[0])
+    assert args[0]("http://base.url/formResponse") is True
+    assert args[0]("http://base.url/other") is False
+    assert kwargs.get("timeout") == 10000
     assert "請假申請提交成功" in mock_logger.info.call_args[0][0]
 
 @pytest.mark.unit

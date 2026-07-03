@@ -15,7 +15,7 @@ CONFIG_CONTENT = """
 ;browser_options=--incognito,--headless
 browser_options=--incognito, --verbose, --headless
 submit_form_id = mG61Hd
-submit_button_id = div[aria-label='Submit']
+submit_button_id = div[aria-label='Submit'], div[aria-label='提交']
 base_url=https://docs.google.com/forms/d/e/1FAIpQLSfD0hmBHbgzWdwh2gbSoWkZxbzAxpbiXEIyy_yaMk_bTNYGQg
 prelaunch_time=0.2
 ntp_server=
