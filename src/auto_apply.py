@@ -1,17 +1,17 @@
-import argparse
+import ast
 import asyncio
 import configparser
 import logging
-import ast
 import os
 import sys
 import traceback
-from datetime import datetime, date, timedelta
+from datetime import datetime, timedelta
 
 import ntplib
+import typer
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.date import DateTrigger
-from playwright.async_api import async_playwright, Playwright, Browser, Page
+from playwright.async_api import Browser, Page, Playwright, async_playwright
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 _logger = None
@@ -137,11 +137,13 @@ async def _do_apply_leave(page: Page, base_url: str, submit_button_id: str, appl
         _logger.error(traceback.format_exc())
 
 
-def _valid_date(s):
+def _valid_date(s: str) -> datetime | None:
+    if s is None:
+        return None
     try:
         return datetime.strptime(s, "%Y-%m-%d %H:%M:%S")
     except ValueError:
-        raise argparse.ArgumentTypeError(f"不是有效的日期: '{s}'.")
+        raise typer.BadParameter(f"不是有效的日期: '{s}'. 格式必須為 'YYYY-MM-DD HH:MM:SS'")
 
 
 def _get_ntp_time(ntp_server: str = None) -> datetime:
@@ -235,34 +237,17 @@ async def _pre_load_browser(playwright: Playwright, browser_options: dict) -> Br
     return browser
 
 
-async def main():
+async def async_main(dry_run: bool, config: str | None, execute_date: datetime | None):
     global _logger
     _logger = _init_log()
 
-    parser = argparse.ArgumentParser(
-        description='AutoApply - Command line arguments',
-        epilog='Version 0.0.8 - A tool to automate leave applications with Playwright'
-    )
-
-    parser.add_argument("--dry-run", action="store_true", help="Dry run mode")
-    parser.add_argument("--config", "-c", type=str, help="Path to the configuration file")
-    parser.add_argument("--execute_date", "-d", type=_valid_date,
-                        help="Date in 'YYYY-MM-DD HH:MM:SS' format")
-    parser.add_argument("--version", "-v", action="store_true", help="Show version information")
-
-    args = parser.parse_args()
-
-    if args.version:
-        print("AutoApply version 0.0.8")
-        sys.exit(0)
-
-    config_path = args.config or os.path.join(os.path.curdir, "config.ini")
+    config_path = config or os.path.join(os.path.curdir, "config.ini")
     if not os.path.exists(config_path):
         _logger.error(f"Config file not found at: {config_path}")
         sys.exit(1)
     default_config, apply_data = _load_config(config_path)
 
-    if args.dry_run:
+    if dry_run:
         _logger.info("Dry run mode is enabled.")
         await _verify_playwright()
         sys.exit(0)
@@ -295,9 +280,9 @@ async def main():
             # 無論何種模式，都先載入頁面
             await _pre_load_form(page, target_url, default_config["submit_form_id"])
 
-            if args.execute_date:
+            if execute_date:
                 # 對於排程執行，傳入已載入的 page 物件
-                await setup_scheduled_run(page, base_url, args.execute_date, default_config, apply_data)
+                await setup_scheduled_run(page, base_url, execute_date, default_config, apply_data)
             else:
                 # 對於立即執行，直接提交
                 _logger.info("未指定執行時間，立即執行。")
@@ -310,9 +295,42 @@ async def main():
             await browser.close()
 
 
-if __name__ == '__main__':
-    asyncio.run(main())
+def version_callback(value: bool):
+    if value:
+        print("AutoApply version 0.0.8")
+        raise typer.Exit()
+
+
+app = typer.Typer(add_completion=False)
+
+
+@app.command()
+def main(
+    dry_run: bool = typer.Option(False, "--dry-run", help="Dry run mode"),
+    config: str | None = typer.Option(None, "--config", "-c", help="Path to the configuration file"),
+    execute_date: str | None = typer.Option(
+        None,
+        "--execute_date",
+        "-d",
+        callback=_valid_date,
+        help="Date in 'YYYY-MM-DD HH:MM:SS' format",
+    ),
+    version: bool | None = typer.Option(
+        None,
+        "--version",
+        "-v",
+        callback=version_callback,
+        is_eager=True,
+        help="Show version information",
+    ),
+):
+    asyncio.run(async_main(dry_run, config, execute_date))
+
 
 def cli_main():
     """Synchronous entry point for the console script."""
-    asyncio.run(main())
+    app()
+
+
+if __name__ == '__main__':
+    cli_main()

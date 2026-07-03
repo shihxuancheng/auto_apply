@@ -1,30 +1,32 @@
-import pytest
-from unittest.mock import patch, MagicMock, AsyncMock, call
 import asyncio
-import argparse
-from datetime import datetime
 import configparser
 import logging
 import os
 import sys
+from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+from typer.testing import CliRunner
 
 # 將 src 目錄新增到 sys.path 以便 import auto_apply
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 
 # 匯入需要測試的函式
 from auto_apply import (
+    _do_apply_leave,
+    _get_ntp_time,
     _init_log,
     _load_config,
-    _verify_playwright,
+    _pre_load_browser,
     _pre_load_form,
-    _do_apply_leave,
     _valid_date,
-    _get_ntp_time,
+    _verify_playwright,
+    app,
+    async_main,
+    cli_main,
     scheduled_job,
     setup_scheduled_run,
-    _pre_load_browser,
-    main,
-    cli_main
 )
 
 # 關閉測試期間的日誌輸出
@@ -72,7 +74,7 @@ def test_load_config_fail(mocker):
 
     with pytest.raises(SystemExit):
         _load_config('dummy_config.ini')
-    
+
     # 驗證是否有錯誤日誌被記錄
     mock_logger.error.assert_called()
 
@@ -84,7 +86,7 @@ async def test_verify_playwright(mocker):
     # Ensure launch is an AsyncMock so it can be awaited
     mock_p = mock_playwright.return_value.__aenter__.return_value
     mock_p.chromium.launch = AsyncMock(return_value=AsyncMock())
-    
+
     mock_logger = mocker.patch('auto_apply._logger')
 
     await _verify_playwright()
@@ -135,7 +137,8 @@ def test_valid_date_success():
 @pytest.mark.unit
 def test_valid_date_fail():
     """測試無效的日期字串解析。"""
-    with pytest.raises(argparse.ArgumentTypeError, match="不是有效的日期"):     
+    import typer
+    with pytest.raises(typer.BadParameter, match="不是有效的日期"):
         _valid_date("invalid-date-format")
 
 @pytest.mark.unit
@@ -148,7 +151,7 @@ def test_get_ntp_time_success(mocker):
     mock_ntp_client.request.return_value = mock_response
 
     ntp_time = _get_ntp_time()
-    
+
     assert ntp_time == datetime(2025, 1, 1, 12, 0, 0)
 
 @pytest.mark.unit
@@ -156,7 +159,7 @@ def test_get_ntp_time_fail(mocker):
     """測試獲取 NTP 時間失敗時，回退到本地時間。"""
     mocker.patch('ntplib.NTPClient', side_effect=Exception("NTP Error"))
     mock_logger = mocker.patch('auto_apply._logger')
-    
+
     # 模擬 datetime.now() 以得到可預測的結果
     fixed_now = datetime(2024, 1, 1)
     mocker.patch('auto_apply.datetime').now.return_value = fixed_now
@@ -185,13 +188,13 @@ async def test_setup_scheduled_run(mocker):
     """測試設定排程任務的邏輯。"""
     mock_scheduler = mocker.patch('auto_apply.AsyncIOScheduler').return_value
     mocker.patch('auto_apply._get_ntp_time', return_value=datetime(2025, 10, 18, 9, 0, 0))
-    
+
     # 模擬 asyncio.Event 來避免測試掛起
     mock_event = mocker.patch('asyncio.Event').return_value
     mock_event.wait = AsyncMock()
-    
+
     mocker.patch('auto_apply._logger')
-    
+
     execute_date = datetime(2025, 10, 18, 10, 0, 0)
     default_config = {'prelaunch_time': '0.1', 'submit_button_id': 'submit'}
 
@@ -218,25 +221,24 @@ async def test_pre_load_browser(mocker):
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_main_dry_run(mocker):
-    """測試主函式 --dry-run 模式。"""
-    mocker.patch('sys.argv', ['auto_apply.py', '--dry-run'])
+async def test_async_main_dry_run(mocker):
+    """測試 async_main 在 --dry-run 模式。"""
     mocker.patch('auto_apply._load_config', return_value=({}, {}))
     mock_verify = mocker.patch('auto_apply._verify_playwright', new_callable=AsyncMock)
     mocker.patch('os.path.exists', return_value=True)
     mocker.patch('auto_apply._init_log')
 
     with pytest.raises(SystemExit) as e:
-        await main()
-    
+        await async_main(dry_run=True, config=None, execute_date=None)
+
     assert e.value.code == 0
     mock_verify.assert_called_once()
 
+
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_main_immediate_run(mocker):
-    """測試主函式立即執行模式。"""
-    mocker.patch('sys.argv', ['auto_apply.py'])
+async def test_async_main_immediate_run(mocker):
+    """測試 async_main 立即執行模式。"""
     mocker.patch('auto_apply._load_config', return_value=(
         {'base_url': 'http://test', 'submit_button_id': 'submit', 'submit_form_id': 'form'}, {'p': '1'}
     ))
@@ -247,7 +249,7 @@ async def test_main_immediate_run(mocker):
     mock_p = mocker.patch('auto_apply.async_playwright').return_value.__aenter__.return_value
     mock_browser = AsyncMock()
     mock_page = AsyncMock()
-    
+
     # Ensure launch is an AsyncMock
     mock_p.chromium.launch = AsyncMock(return_value=mock_browser)
 
@@ -256,23 +258,54 @@ async def test_main_immediate_run(mocker):
     mock_pre_load_form = mocker.patch('auto_apply._pre_load_form', new_callable=AsyncMock)
     mock_do_apply = mocker.patch('auto_apply._do_apply_leave', new_callable=AsyncMock)
 
-    await main()
+    await async_main(dry_run=False, config=None, execute_date=None)
 
     mock_pre_load_form.assert_called_once()
     mock_do_apply.assert_called_once()
     mock_browser.close.assert_awaited_once()
 
+
 @pytest.mark.unit
 def test_cli_main(mocker):
     """測試同步的命令列入口點。"""
-    # 模擬 asyncio.run
-    mock_run = mocker.patch('asyncio.run')
-    
-    # 強制使用 MagicMock 而非 AsyncMock，確保 main() 直接回傳字串
-    from unittest.mock import MagicMock
-    mocker.patch('auto_apply.main', new=MagicMock(return_value='dummy_coro_object'))
-
+    mock_app = mocker.patch('auto_apply.app')
     cli_main()
+    mock_app.assert_called_once()
 
-    # 斷言 asyncio.run 是否被呼叫，且參數是我們設定的虛擬物件
-    mock_run.assert_called_once_with('dummy_coro_object')
+
+@pytest.mark.unit
+def test_cli_runner_help():
+    """測試 CLI --help。"""
+    runner = CliRunner()
+    result = runner.invoke(app, ["--help"])
+    assert result.exit_code == 0
+    assert "Show version information" in result.output
+    assert "Dry run mode" in result.output
+
+
+@pytest.mark.unit
+def test_cli_runner_version():
+    """測試 CLI --version。"""
+    runner = CliRunner()
+    result = runner.invoke(app, ["--version"])
+    assert result.exit_code == 0
+    assert "AutoApply version 0.0.8" in result.output
+
+
+@pytest.mark.unit
+def test_cli_runner_dry_run(mocker):
+    """測試 CLI --dry-run。"""
+    mock_async_main = mocker.patch('auto_apply.async_main', new_callable=AsyncMock)
+    runner = CliRunner()
+    result = runner.invoke(app, ["--dry-run"])
+    assert result.exit_code == 0
+    mock_async_main.assert_called_once_with(True, None, None)
+
+
+@pytest.mark.unit
+def test_cli_runner_invalid_date():
+    """測試 CLI 無效日期格式。"""
+    runner = CliRunner()
+    result = runner.invoke(app, ["-d", "invalid-date"])
+    assert result.exit_code != 0
+    assert "不是有效的日期" in result.output

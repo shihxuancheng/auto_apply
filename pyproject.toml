@@ -17,12 +17,14 @@ dependencies = [
     "tqdm==4.67.0",
     "ntplib==0.4.0",
     "apscheduler==3.11.0",
+    "typer>=0.12.0",
 ]
 [dependency-groups]
 dev = [
     "pytest>=9.0.3",
     "pytest-asyncio>=1.4.0",
     "pytest-mock>=3.15.1",
+    "ruff>=0.3.0",
 ]
 
 [project.scripts]
@@ -37,3 +39,11 @@ markers = [
     "unit: marks tests as unit tests",
     "integration: marks tests as integration tests"
 ]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP"]
+ignore = []
